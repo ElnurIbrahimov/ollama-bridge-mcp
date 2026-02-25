@@ -35,7 +35,7 @@ ROUTING_TABLE = {
     "general": {
         "models": [
             "kimi-k2.5:cloud", "deepseek-v3.2:cloud", "mistral-large-3:675b-cloud",
-            "glm-5:cloud", "gemma3:4b", "qwen3:8b"
+            "glm-5:cloud", "gemma3:4b", "qwen3:8b", "llama3:8b"
         ],
         "description": "General research, Q&A, analysis, summarization"
     },
@@ -67,7 +67,7 @@ ROUTING_TABLE = {
     "fast": {
         "models": [
             "gemini-3-flash-preview:cloud", "deepcoder:1.5b", "qwen2:1.5b",
-            "qwen3:8b", "mistral:7b"
+            "qwen3:8b", "mistral:7b", "llama3:8b"
         ],
         "description": "Quick simple tasks where speed matters most"
     }

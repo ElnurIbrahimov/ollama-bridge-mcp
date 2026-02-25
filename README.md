@@ -78,44 +78,58 @@ Don't want to pick a model? Just tell it the task type:
 
 | Category | Description | Top Models |
 |----------|-------------|------------|
-| `code` | Code generation, review, debugging | minimax-m2.5:cloud, qwen3-coder:480b-cloud |
-| `math` | Math, logic, proofs, formal reasoning | kimi-k2-thinking:cloud, gpt-oss:120b-cloud |
-| `general` | Research, Q&A, analysis, summarization | kimi-k2.5:cloud, glm-5:cloud |
-| `vision` | Image understanding, diagrams | qwen3-vl:235b-cloud, llava:latest |
+| `code` | Code generation, review, debugging | devstral-2:123b-cloud, minimax-m2.5:cloud, qwen3-coder-next:cloud |
+| `math` | Math, logic, proofs, formal reasoning | kimi-k2-thinking:cloud, cogito-2.1:671b-cloud |
+| `reasoning` | Complex reasoning, chain-of-thought | deepseek-v3.2:cloud, cogito-2.1:671b-cloud, deepseek-r1:8b |
+| `general` | Research, Q&A, analysis, summarization | kimi-k2.5:cloud, deepseek-v3.2:cloud, mistral-large-3:675b-cloud |
+| `vision` | Image understanding, diagrams | qwen3-vl:235b-cloud, mistral-large-3:675b-cloud, gemma3:4b |
 | `ocr` | Document parsing, tables, formulas | glm-ocr:latest |
-| `factual` | Factual Q&A (low hallucination priority) | glm-5:cloud, kimi-k2.5:cloud |
-| `fast` | Quick simple tasks, speed over quality | qwen3:8b, qwen2:1.5b |
+| `factual` | Factual Q&A (low hallucination priority) | glm-5:cloud, cogito-2.1:671b-cloud |
+| `agentic` | Multi-step tasks, tool use, automation | nemotron-3-nano:30b-cloud, qwen3.5:397b-cloud |
+| `fast` | Quick simple tasks, speed over quality | gemini-3-flash-preview:cloud, deepcoder:1.5b, qwen2:1.5b |
 
 The router checks which models you actually have installed and picks the best available match. No errors if you don't have the top choice — it falls back gracefully.
 
-## Available Models
+## Available Models (27 total: 15 cloud + 12 local)
 
-### Cloud Models (via Ollama Cloud — $20/mo)
+### Cloud Models (via Ollama Cloud — $20/mo, 0 bytes stored locally)
 
 | Model | Params | Best For | Key Benchmark |
 |-------|--------|----------|---------------|
-| `minimax-m2.5:cloud` | 230B (10B active) | Code generation, function calling | SWE-bench 80.2% |
-| `kimi-k2-thinking:cloud` | 1T (32B active) | Deep math, chain-of-thought | AIME 99.1% |
+| `deepseek-v3.2:cloud` | 671B MoE | General reasoning, agents | GPT-5-level, 160K context |
+| `devstral-2:123b-cloud` | 123B | Coding agent | SWE-bench 72.2%, MIT license |
+| `cogito-2.1:671b-cloud` | 671B (37B active) | Frontier reasoning | Competes with closed models, MIT |
+| `mistral-large-3:675b-cloud` | 675B MoE | Multimodal enterprise | Vision + 11 langs, 256K context |
+| `nemotron-3-nano:30b-cloud` | 30B (3.5B active) | Agentic tasks | NVIDIA, 1M context, 3.3x throughput |
+| `qwen3-coder-next:cloud` | 80B (3B active) | Efficient coding | Sonnet 4.5-level, 256K context |
+| `gemini-3-flash-preview:cloud` | Google | Fast frontier | Speed-first, vision capable |
+| `minimax-m2.5:cloud` | 230B (10B active) | Code + function calling | SWE-bench 80.2% |
+| `kimi-k2-thinking:cloud` | 1T (32B active) | Deep math | AIME 99.1% |
 | `kimi-k2.5:cloud` | 1T (32B active) | All-rounder, agent swarms | MMLU 92.0, SWE 76.8% |
-| `glm-5:cloud` | 744B (40B active) | Low hallucination, reliable | SWE 77.8%, lowest hallucination |
-| `qwen3.5:397b-cloud` | 397B (17B active) | Agentic browsing, tools | BrowseComp 78.6%, 1M context |
-| `qwen3-coder:480b-cloud` | 480B (35B active) | Large codebase nav | 256K-1M context window |
+| `glm-5:cloud` | 744B (40B active) | Low hallucination | SWE 77.8%, lowest hallucination |
+| `qwen3.5:397b-cloud` | 397B (17B active) | Agentic browsing | BrowseComp 78.6%, 1M context |
+| `qwen3-coder:480b-cloud` | 480B (35B active) | Large codebase nav | 256K-1M context |
 | `qwen3-vl:235b-cloud` | 235B (22B active) | Vision — images, diagrams | MMMU 85.0 |
 | `gpt-oss:120b-cloud` | 117B (5.1B active) | Fast second opinions | MMLU 90%, AIME 97.9% |
 
-### Local Models (Free — runs on your hardware)
+### Local Models (Free — runs on your GPU, no network needed)
+
+All local models fit on an 8GB VRAM GPU (RTX 4060 or similar).
 
 | Model | Size | Best For |
 |-------|------|----------|
-| `qwen3:8b` | 8B | Quick general tasks |
-| `glm-ocr:latest` | 0.9B | OCR, documents, tables, formulas |
-| `qwen2.5-coder:7b` | 7B | Quick code questions |
-| `mistral:7b` | 7B | Fast general tasks |
-| `llama3:8b` | 8B | Fast general tasks |
-| `deepseek-coder:6.7b` | 6.7B | Quick code tasks |
-| `nomic-embed-text` | 137M | Text embeddings for RAG/search |
-| `qwen2:1.5b` | 1.5B | Ultra-fast simple tasks |
-| `llava:latest` | 7B | Local vision tasks |
+| `deepseek-r1:8b` | 5.2 GB | Reasoning, chain-of-thought (approaches O3) |
+| `deepcoder:1.5b` | 1.1 GB | Code reasoning (O3-mini level), ultra-fast |
+| `gemma3:4b` | 3.3 GB | Multimodal (text + images), 128K context, 140 languages |
+| `qwen3:8b` | 5.2 GB | Quick general tasks |
+| `glm-ocr:latest` | 2.2 GB | OCR, documents, tables, formulas |
+| `qwen2.5-coder:7b` | 4.7 GB | Quick code questions |
+| `mistral:7b` | 4.4 GB | Fast general tasks |
+| `llama3:8b` | 4.7 GB | Fast general tasks |
+| `deepseek-coder:6.7b` | 3.8 GB | Quick code tasks |
+| `nomic-embed-text` | 274 MB | Text embeddings for RAG/search |
+| `qwen2:1.5b` | 934 MB | Ultra-fast simple tasks |
+| `llava:latest` | 4.7 GB | Local vision tasks |
 
 You can use **any model available on Ollama** — these are just the ones with routing hints baked into the server. Pull whatever you need with `ollama pull <model>`.
 
@@ -142,16 +156,33 @@ pip install -r requirements.txt
 
 ### 3. Pull some models
 
-```bash
-# Local models (free, runs on your GPU/CPU)
-ollama pull qwen3:8b
-ollama pull qwen2.5-coder:7b
-ollama pull glm-ocr:latest
+Cloud models download nothing — they're just pointers to Ollama's cloud infrastructure. Local models download to your disk.
 
-# Cloud models (requires Ollama account)
-ollama pull minimax-m2.5:cloud
+```bash
+# Cloud models (instant, 0 bytes — requires Ollama account for $20/mo plan)
+ollama pull deepseek-v3.2:cloud
+ollama pull devstral-2:123b-cloud
 ollama pull kimi-k2-thinking:cloud
 ollama pull kimi-k2.5:cloud
+ollama pull cogito-2.1:671b-cloud
+ollama pull mistral-large-3:675b-cloud
+ollama pull nemotron-3-nano:30b-cloud
+ollama pull qwen3-coder-next:cloud
+ollama pull gemini-3-flash-preview:cloud
+ollama pull minimax-m2.5:cloud
+ollama pull glm-5:cloud
+ollama pull qwen3.5:397b-cloud
+ollama pull qwen3-coder:480b-cloud
+ollama pull qwen3-vl:235b-cloud
+ollama pull gpt-oss:120b-cloud
+
+# Local models (free, runs on your GPU — needs 8GB+ VRAM)
+ollama pull deepseek-r1:8b        # 5.2 GB — reasoning
+ollama pull deepcoder:1.5b        # 1.1 GB — code reasoning
+ollama pull gemma3:4b             # 3.3 GB — multimodal (text + images)
+ollama pull qwen3:8b              # 5.2 GB — general
+ollama pull glm-ocr:latest        # 2.2 GB — OCR
+ollama pull qwen2.5-coder:7b     # 4.7 GB — code
 ```
 
 ### 4. Register the MCP server with Claude Code
@@ -213,12 +244,13 @@ The `ROUTING_TABLE` dict at the top of `server.py` controls `route_task` behavio
 ```python
 ROUTING_TABLE = {
     "code": {
-        "models": ["minimax-m2.5:cloud", "qwen3-coder:480b-cloud", "qwen2.5-coder:7b"],
+        "models": ["devstral-2:123b-cloud", "minimax-m2.5:cloud", "qwen3-coder-next:cloud",
+                    "qwen3-coder:480b-cloud", "deepcoder:1.5b", "qwen2.5-coder:7b"],
         "description": "Code generation, review, refactoring, debugging"
     },
     # Add your own categories...
     "creative": {
-        "models": ["kimi-k2.5:cloud", "qwen3:8b"],
+        "models": ["kimi-k2.5:cloud", "deepseek-v3.2:cloud", "qwen3:8b"],
         "description": "Creative writing, brainstorming, ideation"
     }
 }

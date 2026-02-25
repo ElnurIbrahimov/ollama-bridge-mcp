@@ -11,19 +11,39 @@ OLLAMA_BASE = "http://localhost:11434"
 # Task categories for smart routing
 ROUTING_TABLE = {
     "code": {
-        "models": ["minimax-m2.5:cloud", "qwen3-coder:480b-cloud", "qwen2.5-coder:7b"],
+        "models": [
+            "devstral-2:123b-cloud", "minimax-m2.5:cloud", "qwen3-coder-next:cloud",
+            "qwen3-coder:480b-cloud", "deepcoder:1.5b", "qwen2.5-coder:7b",
+            "deepseek-coder:6.7b"
+        ],
         "description": "Code generation, review, refactoring, debugging"
     },
     "math": {
-        "models": ["kimi-k2-thinking:cloud", "gpt-oss:120b-cloud", "qwen3:8b"],
+        "models": [
+            "kimi-k2-thinking:cloud", "cogito-2.1:671b-cloud", "gpt-oss:120b-cloud",
+            "deepseek-r1:8b", "qwen3:8b"
+        ],
         "description": "Math, logic, formal reasoning, proofs"
     },
+    "reasoning": {
+        "models": [
+            "deepseek-v3.2:cloud", "cogito-2.1:671b-cloud", "kimi-k2-thinking:cloud",
+            "deepseek-r1:8b", "deepcoder:1.5b"
+        ],
+        "description": "Complex reasoning, chain-of-thought, hard problems"
+    },
     "general": {
-        "models": ["kimi-k2.5:cloud", "glm-5:cloud", "qwen3:8b"],
+        "models": [
+            "kimi-k2.5:cloud", "deepseek-v3.2:cloud", "mistral-large-3:675b-cloud",
+            "glm-5:cloud", "gemma3:4b", "qwen3:8b"
+        ],
         "description": "General research, Q&A, analysis, summarization"
     },
     "vision": {
-        "models": ["qwen3-vl:235b-cloud", "llava:latest"],
+        "models": [
+            "qwen3-vl:235b-cloud", "mistral-large-3:675b-cloud",
+            "gemma3:4b", "llava:latest"
+        ],
         "description": "Image understanding, diagrams, visual analysis"
     },
     "ocr": {
@@ -31,11 +51,24 @@ ROUTING_TABLE = {
         "description": "Document parsing, OCR, tables, formulas"
     },
     "factual": {
-        "models": ["glm-5:cloud", "kimi-k2.5:cloud", "qwen3:8b"],
+        "models": [
+            "glm-5:cloud", "cogito-2.1:671b-cloud", "kimi-k2.5:cloud",
+            "deepseek-v3.2:cloud", "qwen3:8b"
+        ],
         "description": "Factual questions where low hallucination matters"
     },
+    "agentic": {
+        "models": [
+            "nemotron-3-nano:30b-cloud", "qwen3.5:397b-cloud", "kimi-k2.5:cloud",
+            "devstral-2:123b-cloud"
+        ],
+        "description": "Multi-step agentic tasks, tool use, browsing, automation"
+    },
     "fast": {
-        "models": ["qwen3:8b", "qwen2:1.5b", "mistral:7b"],
+        "models": [
+            "gemini-3-flash-preview:cloud", "deepcoder:1.5b", "qwen2:1.5b",
+            "qwen3:8b", "mistral:7b"
+        ],
         "description": "Quick simple tasks where speed matters most"
     }
 }
@@ -43,43 +76,66 @@ ROUTING_TABLE = {
 MODEL_GUIDE = """ROUTING GUIDE — pick the right model for the task:
 
 === RECOMMENDED ROUTING ===
-Code generation/review  -> minimax-m2.5:cloud   (80.2% SWE-bench, best function calling)
-Deep math/reasoning     -> kimi-k2-thinking:cloud (99.1% AIME, chain-of-thought)
-General research/all-round -> kimi-k2.5:cloud    (92.0 MMLU, 76.8% SWE-bench, agent swarms)
-Factual/low-hallucination  -> glm-5:cloud        (77.8% SWE-bench, industry-lowest hallucination)
-Agentic browsing/tools  -> qwen3.5:397b-cloud    (78.6% BrowseComp, 1M context, 17B active)
-Heavy code generation   -> qwen3-coder:480b-cloud (69.6% SWE-bench, 256K-1M context)
-Vision/images/diagrams  -> qwen3-vl:235b-cloud   (best open VL model, 85.0 MMMU)
-Second opinion/general  -> gpt-oss:120b-cloud    (90% MMLU, fast, 5.1B active)
-Quick local tasks       -> qwen3:8b              (instant, no network)
-OCR/documents           -> glm-ocr:latest        (94.6 OmniDocBench, 0.9B, local)
+Code generation/review   -> devstral-2:123b-cloud     (72.2% SWE-bench, best coding agent)
+Code (alternative)       -> minimax-m2.5:cloud         (80.2% SWE-bench, best function calling)
+Code (efficient)         -> qwen3-coder-next:cloud     (Sonnet 4.5-level, only 3B active params)
+Deep math/reasoning      -> kimi-k2-thinking:cloud     (99.1% AIME, chain-of-thought)
+Complex reasoning        -> deepseek-v3.2:cloud        (671B MoE, GPT-5-level general reasoning)
+Complex reasoning (alt)  -> cogito-2.1:671b-cloud      (671B MoE, frontier-level, MIT license)
+General/all-round        -> kimi-k2.5:cloud            (92.0 MMLU, 76.8% SWE-bench, agent swarms)
+Factual/low-hallucination -> glm-5:cloud               (77.8% SWE-bench, industry-lowest hallucination)
+Multimodal enterprise    -> mistral-large-3:675b-cloud (675B MoE, vision + 11 langs, 256K context)
+Agentic/multi-step tasks -> nemotron-3-nano:30b-cloud  (NVIDIA, 1M context, 3.3x throughput)
+Agentic browsing/tools   -> qwen3.5:397b-cloud         (78.6% BrowseComp, 1M context, 17B active)
+Heavy code generation    -> qwen3-coder:480b-cloud     (69.6% SWE-bench, 256K-1M context)
+Vision/images/diagrams   -> qwen3-vl:235b-cloud        (best open VL model, 85.0 MMMU)
+Fast cloud tasks         -> gemini-3-flash-preview:cloud (Google's speed-first frontier model)
+Second opinion/general   -> gpt-oss:120b-cloud         (90% MMLU, fast, 5.1B active)
+Local reasoning          -> deepseek-r1:8b             (top reasoning model, runs on GPU)
+Local code reasoning     -> deepcoder:1.5b             (O3-mini-level code reasoning, ultra-fast)
+Local multimodal         -> gemma3:4b                  (vision + text, 128K context, 140 langs)
+Quick local tasks        -> qwen3:8b                   (instant, no network)
+OCR/documents            -> glm-ocr:latest             (94.6 OmniDocBench, 0.9B, local)
 
-=== CLOUD MODELS (detailed) ===
-- minimax-m2.5:cloud      | 230B/10B active  | SWE 80.2% | BFCL 76.8 | Best coder + function caller
-- kimi-k2-thinking:cloud  | 1T/32B active    | SWE 71.3% | AIME 99.1% | Math god, 200+ sequential tool calls
-- kimi-k2.5:cloud         | 1T/32B active    | SWE 76.8% | MMLU 92.0 | Best all-rounder, 100 sub-agents
-- glm-5:cloud             | 744B/40B active  | SWE 77.8% | AIME 92.7% | Lowest hallucination rate
-- qwen3.5:397b-cloud      | 397B/17B active  | AIME 91.3 | BrowseComp 78.6% | Efficient agentic model
-- qwen3-coder:480b-cloud  | 480B/35B active  | SWE 69.6% | 256K-1M context | Large codebase navigation
-- qwen3-vl:235b-cloud     | 235B/22B active  | MMMU 85.0 | Vision-language SOTA | Images, video, diagrams
-- gpt-oss:120b-cloud      | 117B/5.1B active | MMLU 90%  | AIME 97.9% | Fast open reasoning
+=== CLOUD MODELS (15 models, 0 bytes stored, run on Ollama's infrastructure) ===
+- deepseek-v3.2:cloud         | 671B MoE         | GPT-5-level reasoning + agents, 160K context
+- devstral-2:123b-cloud       | 123B             | SWE 72.2% | Mistral's best coding agent, MIT license
+- cogito-2.1:671b-cloud       | 671B/37B active  | Frontier reasoning, MIT license
+- mistral-large-3:675b-cloud  | 675B MoE         | Vision + 11 languages, 256K context, Apache 2.0
+- nemotron-3-nano:30b-cloud   | 30B/3.5B active  | NVIDIA, 1M context, 82.88% MATH, 3.3x throughput
+- qwen3-coder-next:cloud      | 80B/3B active    | Sonnet 4.5-level coding, 256K context
+- gemini-3-flash-preview:cloud | Google           | Speed-first frontier model, vision capable
+- minimax-m2.5:cloud          | 230B/10B active  | SWE 80.2% | BFCL 76.8 | Best function caller
+- kimi-k2-thinking:cloud      | 1T/32B active    | SWE 71.3% | AIME 99.1% | Math god
+- kimi-k2.5:cloud             | 1T/32B active    | SWE 76.8% | MMLU 92.0 | Best all-rounder
+- glm-5:cloud                 | 744B/40B active  | SWE 77.8% | AIME 92.7% | Lowest hallucination
+- qwen3.5:397b-cloud          | 397B/17B active  | AIME 91.3 | BrowseComp 78.6% | Agentic
+- qwen3-coder:480b-cloud      | 480B/35B active  | SWE 69.6% | 256K-1M context
+- qwen3-vl:235b-cloud         | 235B/22B active  | MMMU 85.0 | Vision-language SOTA
+- gpt-oss:120b-cloud          | 117B/5.1B active | MMLU 90% | AIME 97.9% | Fast reasoning
 
-=== LOCAL MODELS (instant, no latency) ===
-- qwen3:8b               | 8B   | Quick general tasks
-- glm-ocr:latest          | 0.9B | OCR, document parsing, tables, formulas (94.6 OmniDocBench)
-- qwen2.5-coder:7b        | 7B   | Quick code questions
-- mistral:7b              | 7B   | Fast general tasks
-- llama3:8b               | 8B   | Fast general tasks
-- deepseek-coder:6.7b     | 6.7B | Quick code tasks
-- nomic-embed-text:latest  | 137M | Text embeddings for RAG/search
-- qwen2:1.5b              | 1.5B | Ultra-fast simple tasks
-- llava:latest             | 7B   | Local vision tasks
+=== LOCAL MODELS (12 models, run on your GPU — instant, no network) ===
+- deepseek-r1:8b          | 8B   | Top reasoning model, chain-of-thought (approaches O3)
+- deepcoder:1.5b           | 1.5B | O3-mini-level code reasoning, ultra-fast
+- gemma3:4b                | 4B   | Multimodal (text + images), 128K context, 140 languages
+- qwen3:8b                | 8B   | Quick general tasks
+- glm-ocr:latest           | 0.9B | OCR, document parsing, tables, formulas (94.6 OmniDocBench)
+- qwen2.5-coder:7b         | 7B   | Quick code questions
+- mistral:7b               | 7B   | Fast general tasks
+- llama3:8b                | 8B   | Fast general tasks
+- deepseek-coder:6.7b      | 6.7B | Quick code tasks
+- nomic-embed-text:latest   | 137M | Text embeddings for RAG/search
+- qwen2:1.5b               | 1.5B | Ultra-fast simple tasks
+- llava:latest              | 7B   | Local vision tasks
 
 === NOTES ===
+- 27 models total: 15 cloud + 12 local
+- Cloud models use zero disk space — they run on Ollama's servers
+- Local models run on your GPU (RTX 4060 8GB or similar) — instant, no network
 - MiniMax M2.5 has benchmark gaming history — use GLM-5 or Kimi K2.5 if reliability matters more
 - Kimi K2 Thinking is slower due to chain-of-thought but more thorough
-- Cloud models stream from Ollama cloud — fast, no local GPU needed
-- Local models run on your hardware — instant but limited capability"""
+- DeepSeek R1 and DeepCoder are reasoning models — they "think" before answering
+- gemma3:4b handles both text AND images locally"""
 
 
 async def _query_model(client, model, messages):

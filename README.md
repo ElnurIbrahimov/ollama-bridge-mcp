@@ -4,6 +4,22 @@ An MCP server that connects [Claude Code](https://docs.anthropic.com/en/docs/cla
 
 **The idea:** Claude (Sonnet 4.6/Opus 4.6) stays as the orchestrator — the brain that understands your codebase, manages context, and drives the workflow. But instead of doing *everything* itself, it can now call out to specialized models for specific tasks: a math model for hard reasoning, a code model for generation, a vision model for diagrams, an OCR model for documents.
 
+## Why Multi-Model? Every Major AI Tool Already Does This
+
+This isn't a novel concept — it's how the industry actually works. By studying the [system prompts and internals of 30+ AI coding tools](https://github.com/ElnurIbrahimov/system-prompts-and-models-of-ai-tools), a clear pattern emerges:
+
+- **GitHub Copilot** supports 6+ backend models: Claude Sonnet 4, Gemini 2.5 Pro, GPT-4.1, GPT-4o, GPT-5, GPT-5-mini
+- **Cursor** uses GPT-5 for its agent mode, different models for different features
+- **Augment Code** switches between Claude Sonnet 4 and GPT-5 depending on the task
+- **Windsurf/Cascade** runs on GPT 4.1, **Same.dev** on GPT-4.1, each product picking the best model for their use case
+- **Perplexity's Comet** uses multiple specialized models behind its browser agent
+
+No commercial product uses a single model for everything. They all route tasks to specialized models. The difference is: they do it behind closed doors, and you pay a premium for it.
+
+**This MCP server gives you the same architecture — open source, on your terms.**
+
+Claude stays as the orchestrator (the best model for understanding context and managing complex workflows), and cheap/free specialized models handle the delegated subtasks. Same pattern as the billion-dollar products, but you control the routing and pay a fraction of the cost.
+
 ## Why This Exists
 
 ### The Problem
@@ -29,11 +45,48 @@ You <-> Claude Code (Sonnet 4.6 / Opus 4.6)
               |                              - math reasoning
               |                              - vision/OCR
               |                              - second opinions
+              |                              - batch comparisons
               |
               |--- comes back with the answer, continues working
 ```
 
-Claude sees all available models and their strengths. It picks the right one, sends the task, gets the result, and keeps going. You don't have to manage routing — Claude does it automatically.
+Claude sees all available models and their strengths. It picks the right one (or several at once), sends the task, gets the result, and keeps going. You don't have to manage routing — Claude does it automatically.
+
+## Tools
+
+The server exposes 4 MCP tools:
+
+| Tool | What It Does |
+|------|-------------|
+| **`ask_model`** | Send a prompt to any specific Ollama model |
+| **`batch_ask`** | Send the same prompt to multiple models **in parallel** — get compared answers |
+| **`route_task`** | Describe a task category (code, math, vision, etc.) and the server **automatically picks the best available model** |
+| **`list_models`** | List all models on your Ollama instance |
+
+### `batch_ask` — Multi-Model Comparison
+
+Send one prompt to 2-5 models at the same time. All run in parallel, so total time = slowest model, not the sum. Use cases:
+
+- Get 3 different code implementations and pick the best
+- Cross-check a factual answer across models to reduce hallucination
+- Compare reasoning approaches on a hard problem
+- Get a fast local answer immediately while a thorough cloud answer is still generating
+
+### `route_task` — Smart Auto-Routing
+
+Don't want to pick a model? Just tell it the task type:
+
+| Category | Description | Top Models |
+|----------|-------------|------------|
+| `code` | Code generation, review, debugging | minimax-m2.5:cloud, qwen3-coder:480b-cloud |
+| `math` | Math, logic, proofs, formal reasoning | kimi-k2-thinking:cloud, gpt-oss:120b-cloud |
+| `general` | Research, Q&A, analysis, summarization | kimi-k2.5:cloud, glm-5:cloud |
+| `vision` | Image understanding, diagrams | qwen3-vl:235b-cloud, llava:latest |
+| `ocr` | Document parsing, tables, formulas | glm-ocr:latest |
+| `factual` | Factual Q&A (low hallucination priority) | glm-5:cloud, kimi-k2.5:cloud |
+| `fast` | Quick simple tasks, speed over quality | qwen3:8b, qwen2:1.5b |
+
+The router checks which models you actually have installed and picks the best available match. No errors if you don't have the top choice — it falls back gracefully.
 
 ## Available Models
 
@@ -117,25 +170,23 @@ claude mcp add ollama-bridge -- python C:/Users/yourname/ollama-bridge-mcp/serve
 
 Start a new Claude Code session. You should see `ollama-bridge` in your available tools. Claude will now automatically delegate to Ollama models when appropriate.
 
-## How It Works
+## Example Flows
 
-The server exposes two MCP tools:
+### Single model delegation
+1. You ask Claude to optimize a complex algorithm
+2. Claude sends the code to `minimax-m2.5:cloud` (SWE-bench 80.2%) via `ask_model`
+3. Gets back optimized code, reviews it, integrates into your codebase
 
-| Tool | Description |
-|------|-------------|
-| `ask_model` | Send a prompt to any Ollama model with an optional system prompt |
-| `list_models` | List all models currently available on your Ollama instance |
+### Batch comparison
+1. You ask Claude to solve a tricky math proof
+2. Claude uses `batch_ask` with `[kimi-k2-thinking:cloud, glm-5:cloud, gpt-oss:120b-cloud]`
+3. Gets 3 independent solutions in parallel, compares them, picks the best
 
-The `ask_model` tool description includes a **routing guide** — Claude reads this and automatically picks the best model for each subtask. You can customize the routing guide in `server.py` to match whatever models you have available.
-
-### Example Flow
-
-1. You ask Claude Code to solve a complex math problem in your codebase
-2. Claude recognizes this is heavy reasoning and calls `ask_model` with `kimi-k2-thinking:cloud`
-3. Kimi K2 returns the solution
-4. Claude integrates the answer and continues working on your code
-
-All transparent. You see it happen in the Claude Code output.
+### Auto-routed task
+1. You ask Claude to parse a PDF table
+2. Claude calls `route_task` with category `ocr`
+3. Server checks your installed models, picks `glm-ocr:latest`, runs it
+4. Claude gets the parsed table and continues
 
 ## Cost Breakdown
 
@@ -155,6 +206,26 @@ The $20/mo Ollama cloud plan is an incredible value — you get access to models
 
 Edit the `MODEL_GUIDE` string in `server.py` to add/remove models or change routing recommendations. Claude reads this guide to decide which model to use.
 
+### Edit the routing table
+
+The `ROUTING_TABLE` dict at the top of `server.py` controls `route_task` behavior. Add categories or change model priority:
+
+```python
+ROUTING_TABLE = {
+    "code": {
+        "models": ["minimax-m2.5:cloud", "qwen3-coder:480b-cloud", "qwen2.5-coder:7b"],
+        "description": "Code generation, review, refactoring, debugging"
+    },
+    # Add your own categories...
+    "creative": {
+        "models": ["kimi-k2.5:cloud", "qwen3:8b"],
+        "description": "Creative writing, brainstorming, ideation"
+    }
+}
+```
+
+Models are tried in order — first available match wins.
+
 ### Add your own models
 
 Pull any model from the [Ollama library](https://ollama.com/library):
@@ -163,7 +234,7 @@ Pull any model from the [Ollama library](https://ollama.com/library):
 ollama pull <model-name>
 ```
 
-It's immediately available through the MCP server. Add it to the `MODEL_GUIDE` if you want Claude to prioritize it for certain tasks.
+It's immediately available through the MCP server. Add it to the `MODEL_GUIDE` and `ROUTING_TABLE` if you want Claude to prioritize it for certain tasks.
 
 ### Change the Ollama endpoint
 
@@ -181,6 +252,14 @@ OLLAMA_BASE = "http://your-host:11434"
 | Model timeout (>600s) | Try a smaller model or simpler prompt |
 | MCP server not showing up | Re-run `claude mcp add` and restart Claude Code |
 | Cloud models not working | Check your Ollama account and cloud access at [ollama.com](https://ollama.com) |
+| `route_task` says no models available | Pull at least one model per category you want to use |
+
+## Related Reading
+
+- [System Prompts and Models of AI Tools](https://github.com/ElnurIbrahimov/system-prompts-and-models-of-ai-tools) — Leaked system prompts from 30+ AI coding tools, showing how every major product uses multi-model architectures internally
+- [Ollama](https://ollama.com) — Run open-source LLMs locally or via cloud
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — Anthropic's CLI for Claude
+- [MCP (Model Context Protocol)](https://modelcontextprotocol.io) — The protocol that makes this integration possible
 
 ## License
 

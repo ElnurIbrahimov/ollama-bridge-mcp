@@ -1,0 +1,171 @@
+import asyncio
+import httpx
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
+
+app = Server("ollama-bridge")
+
+OLLAMA_BASE = "http://localhost:11434"
+
+MODEL_GUIDE = """ROUTING GUIDE — pick the right model for the task:
+
+=== RECOMMENDED ROUTING ===
+Code generation/review  -> minimax-m2.5:cloud   (80.2% SWE-bench, best function calling)
+Deep math/reasoning     -> kimi-k2-thinking:cloud (99.1% AIME, chain-of-thought)
+General research/all-round -> kimi-k2.5:cloud    (92.0 MMLU, 76.8% SWE-bench, agent swarms)
+Factual/low-hallucination  -> glm-5:cloud        (77.8% SWE-bench, industry-lowest hallucination)
+Agentic browsing/tools  -> qwen3.5:397b-cloud    (78.6% BrowseComp, 1M context, 17B active)
+Heavy code generation   -> qwen3-coder:480b-cloud (69.6% SWE-bench, 256K-1M context)
+Vision/images/diagrams  -> qwen3-vl:235b-cloud   (best open VL model, 85.0 MMMU)
+Second opinion/general  -> gpt-oss:120b-cloud    (90% MMLU, fast, 5.1B active)
+Quick local tasks       -> qwen3:8b              (instant, no network)
+OCR/documents           -> glm-ocr:latest        (94.6 OmniDocBench, 0.9B, local)
+
+=== CLOUD MODELS (detailed) ===
+- minimax-m2.5:cloud      | 230B/10B active  | SWE 80.2% | BFCL 76.8 | Best coder + function caller
+- kimi-k2-thinking:cloud  | 1T/32B active    | SWE 71.3% | AIME 99.1% | Math god, 200+ sequential tool calls
+- kimi-k2.5:cloud         | 1T/32B active    | SWE 76.8% | MMLU 92.0 | Best all-rounder, 100 sub-agents
+- glm-5:cloud             | 744B/40B active  | SWE 77.8% | AIME 92.7% | Lowest hallucination rate
+- qwen3.5:397b-cloud      | 397B/17B active  | AIME 91.3 | BrowseComp 78.6% | Efficient agentic model
+- qwen3-coder:480b-cloud  | 480B/35B active  | SWE 69.6% | 256K-1M context | Large codebase navigation
+- qwen3-vl:235b-cloud     | 235B/22B active  | MMMU 85.0 | Vision-language SOTA | Images, video, diagrams
+- gpt-oss:120b-cloud      | 117B/5.1B active | MMLU 90%  | AIME 97.9% | Fast open reasoning
+
+=== LOCAL MODELS (instant, no latency) ===
+- qwen3:8b               | 8B   | Quick general tasks
+- glm-ocr:latest          | 0.9B | OCR, document parsing, tables, formulas (94.6 OmniDocBench)
+- qwen2.5-coder:7b        | 7B   | Quick code questions
+- mistral:7b              | 7B   | Fast general tasks
+- llama3:8b               | 8B   | Fast general tasks
+- deepseek-coder:6.7b     | 6.7B | Quick code tasks
+- nomic-embed-text:latest  | 137M | Text embeddings for RAG/search
+- qwen2:1.5b              | 1.5B | Ultra-fast simple tasks
+- llava:latest             | 7B   | Local vision tasks
+
+=== NOTES ===
+- MiniMax M2.5 has benchmark gaming history — use GLM-5 or Kimi K2.5 if reliability matters more
+- Kimi K2 Thinking is slower due to chain-of-thought but more thorough
+- Cloud models stream from Ollama cloud — fast, no local GPU needed
+- Local models run on your hardware — instant but limited capability"""
+
+
+@app.list_tools()
+async def list_tools():
+    return [
+        Tool(
+            name="ask_model",
+            description=(
+                "Send a prompt to any Ollama model (local or cloud). "
+                "Use this to delegate tasks to specialized models.\n\n"
+                + MODEL_GUIDE
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "description": "Ollama model name exactly as listed (e.g. 'qwen3-coder:480b-cloud')"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt/question to send to the model"
+                    },
+                    "system": {
+                        "type": "string",
+                        "description": "Optional system prompt to set context/role",
+                        "default": ""
+                    }
+                },
+                "required": ["model", "prompt"]
+            }
+        ),
+        Tool(
+            name="list_models",
+            description="List all available Ollama models with their strengths and recommended use cases.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        )
+    ]
+
+
+@app.call_tool()
+async def call_tool(name: str, arguments: dict):
+    if name == "list_models":
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"{OLLAMA_BASE}/api/tags")
+                models = resp.json()["models"]
+                names = [m["name"] for m in models]
+                online = "\n".join(f"  - {n}" for n in names)
+                return [TextContent(
+                    type="text",
+                    text=f"Connected to Ollama. Models available:\n{online}\n\n{MODEL_GUIDE}"
+                )]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error connecting to Ollama: {e}")]
+
+    elif name == "ask_model":
+        model = arguments["model"]
+        prompt = arguments["prompt"]
+        system = arguments.get("system", "")
+
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                resp = await client.post(
+                    f"{OLLAMA_BASE}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "stream": False
+                    }
+                )
+
+                if resp.status_code != 200:
+                    return [TextContent(
+                        type="text",
+                        text=f"Ollama error {resp.status_code}: {resp.text}"
+                    )]
+
+                result = resp.json()
+                content = result["message"]["content"]
+
+                total_ns = result.get("total_duration", 0)
+                total_s = round(total_ns / 1e9, 1) if total_ns else "?"
+
+                return [TextContent(
+                    type="text",
+                    text=f"[{model}] ({total_s}s):\n\n{content}"
+                )]
+
+        except httpx.TimeoutException:
+            return [TextContent(
+                type="text",
+                text=f"Timeout: {model} took too long (>600s). Try a smaller model or simpler prompt."
+            )]
+        except httpx.ConnectError:
+            return [TextContent(
+                type="text",
+                text="Cannot connect to Ollama. Make sure it's running (ollama serve)."
+            )]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error: {e}")]
+
+
+async def main():
+    async with stdio_server() as (read_stream, write_stream):
+        await app.run(
+            read_stream, write_stream,
+            app.create_initialization_options()
+        )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
